@@ -2,31 +2,36 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ZXing.QrCode;
 
 namespace QRGen.Controllers
 {
-    [Route("api/[controller]")]
+    
     [ApiController]
     public class QRController : ControllerBase
     {
-        [HttpGet]
-        public async Task<IActionResult> Get(string data = "SAMPLE")
-        {
-            return GenCode(data, 250, 250, 0);
-        }
-
+        [Route("api/[controller]")]
         [HttpPost]
-        [HttpPut]
         public async Task<IActionResult> Post([FromBody]QRData data)
         {
-            return GenCode(data.data, data.height, data.width, data.margin);
+            var ms = GenCode(data.data, data.height, data.width, data.margin);
+            return File(ms, "image/png");
         }
 
-        private IActionResult GenCode(string data, int height, int width, int margin)
+        [Route("api/[controller]/base64")]
+        [HttpPost]
+        public string PostBase64Response([FromBody]QRData data)
+        {
+            var ms = GenCode(data.data, data.height, data.width, data.margin);
+            var mBytes = ms.ToArray();          
+            return Convert.ToBase64String(mBytes);
+        }
+
+        private MemoryStream GenCode(string data, int height, int width, int margin)
         {
             var qrCodeWriter = new ZXing.BarcodeWriterPixelData
             {
@@ -56,7 +61,7 @@ namespace QRGen.Controllers
 
             bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
             ms.Position = 0;
-            return File(ms, "image/png");
+            return ms;
         }
     }
     public class QRData

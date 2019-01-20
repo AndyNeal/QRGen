@@ -27,6 +27,7 @@ namespace QRGen
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            services.AddCors();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -46,8 +47,7 @@ namespace QRGen
                     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
                 });
             }
-
-            app.UseHttpsRedirection();
+            app.UseCors(builder => builder.WithOrigins("*").AllowAnyHeader());
             app.UseMvc();
         }
     }
