@@ -6,7 +6,9 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using ZXing;
 using ZXing.QrCode;
+
 
 namespace QRGen.Controllers
 {
@@ -14,7 +16,7 @@ namespace QRGen.Controllers
     [ApiController]
     public class QRController : ControllerBase
     {
-        [Route("api/[controller]")]
+        [Route("[controller]/png")]
         [HttpPost]
         public async Task<IActionResult> Post([FromBody]QRData data)
         {
@@ -22,13 +24,13 @@ namespace QRGen.Controllers
             return File(ms, "image/png");
         }
 
-        [Route("api/[controller]/base64")]
+        [Route("[controller]/base64")]
         [HttpPost]
         public string PostBase64Response([FromBody]QRData data)
         {
             var ms = GenCode(data.data, data.height, data.width, data.margin);
             var mBytes = ms.ToArray();          
-            return Convert.ToBase64String(mBytes);
+            return "data: image / png; base64," + Convert.ToBase64String(mBytes);
         }
 
         private MemoryStream GenCode(string data, int height, int width, int margin)
@@ -43,24 +45,19 @@ namespace QRGen.Controllers
                     Margin = margin
                 }
             };
-            var pixelData = qrCodeWriter.Write(data);
+            var bitMatrix = qrCodeWriter.Encode(data);
 
-            var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            var renderer = new ZXing.SkiaSharp.Rendering.SKBitmapRenderer();
+            var bitmap = renderer.Render(bitMatrix, BarcodeFormat.QR_CODE, data);
+            
+            var skStream = new SkiaSharp.SKDynamicMemoryWStream();
+            bitmap.Encode(skStream, SkiaSharp.SKEncodedImageFormat.Png, 100);
+            var stream = skStream.CopyToData().AsStream();
 
             var ms = new MemoryStream();
-
-            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-            try
-            {
-                System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
-            }
-            finally
-            {
-                bitmap.UnlockBits(bitmapData);
-            }
-
-            bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            stream.CopyTo(ms);
             ms.Position = 0;
+
             return ms;
         }
     }
